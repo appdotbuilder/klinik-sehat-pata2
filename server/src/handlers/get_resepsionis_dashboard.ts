@@ -1,22 +1,43 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type ResepsionisData } from '../schema';
+import { eq, and } from 'drizzle-orm';
 
-export async function getResepsionisData(userId: number): Promise<ResepsionisData> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is providing receptionist dashboard data
-    // This should only be accessible by resepsionis role
-    // Steps to implement:
-    // 1. Verify user has resepsionis role (from auth context)
-    // 2. Get receptionist information from database
-    // 3. Count pending and today's appointments
-    // 4. Return receptionist dashboard data
-    
-    return Promise.resolve({
-        receptionist_info: {
-            id: userId,
-            full_name: "Resepsionis Placeholder",
-            email: "receptionist@placeholder.com"
-        },
-        pending_appointments: 5,
-        today_appointments: 12
-    } as ResepsionisData);
-}
+export const getResepsionisData = async (userId: number): Promise<ResepsionisData> => {
+  try {
+    // Get receptionist information from database
+    const users = await db.select()
+      .from(usersTable)
+      .where(and(
+        eq(usersTable.id, userId),
+        eq(usersTable.role, 'resepsionis'),
+        eq(usersTable.is_active, true)
+      ))
+      .execute();
+
+    if (users.length === 0) {
+      throw new Error('Receptionist not found or inactive');
+    }
+
+    const user = users[0];
+
+    // Since there are no appointment tables in the current schema,
+    // we'll return placeholder values for appointment counts
+    // In a real implementation, these would query appointment tables
+    const pendingAppointments = 0; // Would query appointments with status 'pending'
+    const todayAppointments = 0; // Would query appointments for today's date
+
+    return {
+      receptionist_info: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email
+      },
+      pending_appointments: pendingAppointments,
+      today_appointments: todayAppointments
+    };
+  } catch (error) {
+    console.error('Failed to get receptionist dashboard data:', error);
+    throw error;
+  }
+};

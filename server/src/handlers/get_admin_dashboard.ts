@@ -1,20 +1,68 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type AdminDashboard } from '../schema';
+import { eq, desc, count, and } from 'drizzle-orm';
 
 export async function getAdminDashboard(): Promise<AdminDashboard> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is providing admin dashboard data
-    // This should only be accessible by admin role
-    // Steps to implement:
-    // 1. Verify user has admin role (from auth context)
-    // 2. Query user statistics from database
-    // 3. Get recent user registrations
-    // 4. Return dashboard data
-    
-    return Promise.resolve({
-        total_users: 0,
-        total_doctors: 0,
-        total_receptionists: 0,
-        active_users: 0,
-        recent_registrations: []
-    } as AdminDashboard);
+  try {
+    // Query total user counts by role and status
+    const userStats = await db
+      .select({
+        role: usersTable.role,
+        is_active: usersTable.is_active,
+        count: count()
+      })
+      .from(usersTable)
+      .groupBy(usersTable.role, usersTable.is_active)
+      .execute();
+
+    // Get recent user registrations (last 10)
+    const recentRegistrations = await db
+      .select({
+        id: usersTable.id,
+        full_name: usersTable.full_name,
+        role: usersTable.role,
+        created_at: usersTable.created_at
+      })
+      .from(usersTable)
+      .orderBy(desc(usersTable.created_at))
+      .limit(10)
+      .execute();
+
+    // Calculate statistics from grouped data
+    let total_users = 0;
+    let total_doctors = 0;
+    let total_receptionists = 0;
+    let active_users = 0;
+
+    for (const stat of userStats) {
+      const userCount = stat.count;
+      
+      // Count total users
+      total_users += userCount;
+      
+      // Count active users
+      if (stat.is_active) {
+        active_users += userCount;
+      }
+      
+      // Count by role
+      if (stat.role === 'dokter') {
+        total_doctors += userCount;
+      } else if (stat.role === 'resepsionis') {
+        total_receptionists += userCount;
+      }
+    }
+
+    return {
+      total_users,
+      total_doctors,
+      total_receptionists,
+      active_users,
+      recent_registrations: recentRegistrations
+    };
+  } catch (error) {
+    console.error('Admin dashboard data fetch failed:', error);
+    throw error;
+  }
 }

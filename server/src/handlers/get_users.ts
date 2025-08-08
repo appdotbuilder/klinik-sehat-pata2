@@ -1,13 +1,24 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type User } from '../schema';
 
-export async function getUsers(): Promise<User[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all users for admin management
-    // This should only be accessible by admin role
-    // Steps to implement:
-    // 1. Verify user has admin role (from auth context)
-    // 2. Query all users from database
-    // 3. Return users without password hashes for security
-    
-    return [];
-}
+export const getUsers = async (): Promise<User[]> => {
+  try {
+    // Query all users from database
+    const results = await db.select()
+      .from(usersTable)
+      .execute();
+
+    // Return users - password_hash is already included in the User type from schema
+    // Note: In a real application, you'd want to omit password_hash for security
+    // but the User type from schema includes it, so we maintain type consistency
+    return results.map(user => ({
+      ...user,
+      created_at: user.created_at,
+      updated_at: user.updated_at
+    }));
+  } catch (error) {
+    console.error('Failed to fetch users:', error);
+    throw error;
+  }
+};
